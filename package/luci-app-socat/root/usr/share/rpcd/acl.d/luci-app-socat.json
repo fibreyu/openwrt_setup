@@ -1,0 +1,17 @@
+{
+    "luci-app-socat": {
+        "description": "socat",
+        "read": {
+            "file": {
+                "/usr/bin/socat": [ "exec" ],
+            },
+            "ubus": {
+                "luci-rpc": [ "getHostHints" ]
+            },
+            "uci": [ "socat" ] 
+        },
+        "write": {
+            "uci": [ "socat" ]
+        }
+    }
+}

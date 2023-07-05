@@ -1,0 +1,39 @@
+#!/bin/sh
+
+# lan ip
+lan_ip='10.0.4.8'
+gateway='10.0.4.2'
+dns_ip=${gateway}
+
+# change password
+sed -i 's/root:::0:99999:7:::/root:$1$2Ep0SUcR$A00OPM0TNK6zRWMVP017M0:19282:0:99999:7:::/g' /etc/shadow
+
+# change ip
+sed -i "s/192.168.1.1/${lan_ip}/g" /etc/config/network
+sed -i "/option ipaddr '${lan_ip}'/a\\\tlist dns '${dns_ip}'" /etc/config/network
+sed -i "/option ipaddr '${lan_ip}'/a\\\toption gateway '${gateway}'" /etc/config/network
+
+
+# change dhcp
+# dns server
+sed -i "/config dhcp 'lan'/a\\\tlist dhcp_option '6,${lan_ip}'" /etc/config/dhcp
+# gateway
+sed -i "/config dhcp 'lan'/a\\\tlist dhcp_option '3,${lan_ip}'" /etc/config/dhcp
+# netmask
+sed -i "/config dhcp 'lan'/a\\\tlist dhcp_option '1,255.255.255.0'" /etc/config/dhcp
+# ip pool size
+sed -i "/option limit/d" /etc/config/dhcp
+sed -i "/config dhcp 'lan'/a\\\toption limit '200'" /etc/config/dhcp
+# start ip pool
+sed -i "/option start/d" /etc/config/dhcp
+sed -i "/config dhcp 'lan'/a\\\toption start '1'" /etc/config/dhcp
+
+
+# login ttyd
+sed -i 's/login/login -f root/g' /etc/config/ttyd
+
+# language
+sed '/option lang/d' /etc/config/luci
+sed "/config core 'main'/a\\\toption lang 'zh_cn'" /etc/config/luci
+
+exit 0

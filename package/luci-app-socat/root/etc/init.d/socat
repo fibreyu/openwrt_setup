@@ -1,0 +1,297 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2008-2023 fibreyu
+
+# 开机启动顺寻
+START=99
+# 停止顺序
+STOP=99
+
+# 使用procd
+USE_PROCD=1
+# 输出向ubus总线调用的参数信息
+# PROCD_DEBUG=1
+# 服务程序
+PROG=/usr/bin/socat
+# 配置文件名
+CONFIG=socat
+
+# 要打开的防火墙端口
+UDP4=""
+UDP6=""
+TCP4=""
+TCP6=""
+
+# 添加防火墙参数
+add_rule() {
+	# iptables -N SOCAT
+	# iptables -I INPUT -j SOCAT
+	# ip6tables -N SOCAT
+	# ip6tables -I INPUT -j SOCAT
+	
+
+	# config_get CONFIG_NUM_SECTIONS $CONFIG CONFIG_NUM_SECTIONS
+	# section 小于1个 直接退出，因为没有配置端口转发
+	
+	del_rule
+	
+	[ -n "$CONFIG_NUM_SECTIONS" ] && [ $CONFIG_NUM_SECTIONS -le 1 ] && {
+		return 0
+	}
+
+	if [ -n "$UDP6" ];then
+		uci -q delete firewall.socat_UDP6
+		uci set firewall.socat_UDP6=rule
+		uci set firewall.socat_UDP6.name="socat_UDP6"
+		uci set firewall.socat_UDP6.target="ACCEPT"
+		uci set firewall.socat_UDP6.src="wan"
+		uci set firewall.socat_UDP6.dest_port="$UDP6"
+		uci set firewall.socat_UDP6.proto="udp"
+		uci set firewall.socat_UDP6.family="ipv6"
+		uci set firewall.socat_UDP6.enable="1"
+	fi
+
+	if [ -n "$UDP4" ];then
+		uci -q delete firewall.socat_UDP4
+		uci set firewall.socat_UDP4=rule
+		uci set firewall.socat_UDP4.name="socat_UDP4"
+		uci set firewall.socat_UDP4.target="ACCEPT"
+		uci set firewall.socat_UDP4.src="wan"
+		uci set firewall.socat_UDP4.dest_port="$UDP4"
+		uci set firewall.socat_UDP4.proto="udp"
+		uci set firewall.socat_UDP4.family="ipv4"
+		uci set firewall.socat_UDP4.enable="1"
+	fi
+
+	if [ -n "$TCP6" ];then
+		uci -q delete firewall.socat_TCP6
+		uci set firewall.socat_TCP6=rule
+		uci set firewall.socat_TCP6.name="socat_TCP6"
+		uci set firewall.socat_TCP6.target="ACCEPT"
+		uci set firewall.socat_TCP6.src="wan"
+		uci set firewall.socat_TCP6.dest_port="$TCP6"
+		uci set firewall.socat_TCP6.proto="tcp"
+		uci set firewall.socat_TCP6.family="ipv6"
+		uci set firewall.socat_TCP6.enable="1"
+	fi
+
+	if [ -n "$TCP4" ];then
+		uci -q delete firewall.socat_TCP4
+		uci set firewall.socat_TCP4=rule
+		uci set firewall.socat_TCP4.name="socat_TCP4"
+		uci set firewall.socat_TCP4.target="ACCEPT"
+		uci set firewall.socat_TCP4.src="wan"
+		uci set firewall.socat_TCP4.dest_port="$TCP4"
+		uci set firewall.socat_TCP4.proto="tcp"
+		uci set firewall.socat_TCP4.family="ipv4"
+		uci set firewall.socat_TCP4.enable="1"
+	fi
+
+	uci commit firewall
+	/etc/init.d/firewall reload >/dev/null 2>&1
+	# fw4 reload 2>&1
+}
+
+# 去除首末空格
+trim_string() {
+	# : "${1#"${1%%[![:space:]]*}"}"
+	# : "${_%"${_##*[![:space:]]}"}"
+	# printf '%s\n' "$_"
+	local s=`echo "$1"`
+	echo $s
+}
+
+# 删除防火墙参数
+del_rule() {
+	# iptables -D INPUT -j SOCAT 2>/dev/null
+	# iptables -F SOCAT 2>/dev/null
+	# iptables -X SOCAT 2>/dev/null
+	# ip6tables -D INPUT -j SOCAT 2>/dev/null
+	# ip6tables -F SOCAT 2>/dev/null
+	# ip6tables -X SOCAT 2>/dev/null
+
+	uci -q delete firewall.socat_UDP4
+	uci -q delete firewall.socat_UDP6
+	uci -q delete firewall.socat_TCP4
+	uci -q delete firewall.socat_TCP6
+	uci commit firewall
+	/etc/init.d/firewall reload >/dev/null 2>&1
+	# fw4 reload 2>&1
+}
+
+
+# 检查参数
+validate_section_socat() {
+	# 验证输入参数，源协议可以部分ipv4和v6，目的协议需要分ipv4和v6
+	uci_load_validate socat instance "${1}" "${2}" \
+		'src_proto:or("TCP", "TCP4", "TCP6", "UDP", "UDP4", "UDP6", "tcp", "tcp4", "tcp6", "udp", "udp4", "udp6")' \
+		'src_port:port' \
+		'dest_proto:or("TCP", "TCP4", "TCP6", "UDP", "UDP4", "UDP6", "tcp", "tcp4", "tcp6", "udp", "udp4", "udp6")' \
+		'dest_ip:host' \
+		'dest_port:port' \
+		'firewall_accept:or("1", "0")' \
+		'enable:or("1", "0")' \
+		'reuseaddr:or("1", "0")'
+
+	return $?
+}
+
+# 添加命令
+append_param_command() {
+	procd_add_param command "$1"
+}
+
+# 小写字母转大写字母
+to_upper_case() {
+	local upper="$(echo "$1" | tr '[a-z]' '[A-Z]')"
+	echo $upper
+}
+
+# 添加防火墙列表，用于防火墙开通
+add_port_list() {
+	
+	local src_port=""
+	local src_proto=""
+	config_get src_port ${section} src_port
+	config_get src_proto ${section} src_proto
+	src_proto="$(to_upper_case "${src_proto}")"
+
+	# 添加端口数据
+	[ "${src_proto}" = "TCP4" ] && TCP4="${TCP4} ${src_port}"
+	[ "${src_proto}" = "TCP6" ] && TCP6="${TCP6} ${src_port}"
+	[ "${src_proto}" = "UDP4" ] && UDP4="${UDP4} ${src_port}"
+	[ "${src_proto}" = "UDP6" ] && UDP6="${UDP6} ${src_port}"
+	[ "${src_proto}" = "TCP" ] && {
+		TCP4="${TCP4} ${src_port}"
+		TCP6="${TCP6} ${src_port}"
+	}
+	[ "${src_proto}" = "UDP" ] && {
+		UDP4="${UDP4} ${src_port}"
+		UDP6="${UDP6} ${src_port}"
+	}
+
+	# 去除首末空格
+	TCP6="$(trim_string "$TCP6")"
+	UDP6="$(trim_string "$UDP6")"
+	TCP4="$(trim_string "$TCP4")"
+	UDP4="$(trim_string "$UDP4")"
+
+}
+
+# 生成命令行启动命令
+generate_command() {
+	local cmd=""
+	local remarks="" reuseaddr="" firewall_accept="" service_type="" enable=""
+	local src_family="" src_proto="" src_port=""
+	local dest_family="" dest_proto="" dest_port="" dest_ip=""
+	local section="$1"
+	local ipv6only_params=""
+
+	config_get remarks ${section} remarks
+	config_get reuseaddr ${section} reuseaddr
+	config_get firewall_accept ${section} firewall_accept
+	config_get src_proto ${section} src_proto
+	config_get src_port ${section} src_port
+	config_get dest_proto ${section} dest_proto
+	config_get dest_port ${section} dest_port
+	config_get dest_ip ${section} dest_ip
+	config_get service_type ${section} service_type
+	config_get enable ${section} enable
+
+	# 不启用则返回空命令
+	[ "$enable" = "0" ] && {
+		echo ""
+		return 0
+	}
+
+	# 不是端口转发则返回空命令
+	[ "$service_type" != "port_forwarding" ] && {
+		echo ""
+		return 0
+	}
+
+	if [ "$reuseaddr" = "1" ];then
+		reuseaddr=",reuseaddr"
+	else
+		reuseaddr=""
+	fi
+
+	[ "${src_proto}" = "TCP6" -o "${src_proto}" = "UDP6" ] && ipv6only_params=",ipv6-v6only"
+
+	# 端口转发
+	cmd="${PROG} "-d" "-d" "${src_proto}-LISTEN:${src_port}${ipv6only_params}${reuseaddr},fork" "${dest_proto}:${dest_ip}:${dest_port}""
+
+	echo $cmd
+}
+
+# 启动转发实例
+start_instance() {
+	local user
+	local section="$1"
+	local cmd=""
+	local firewall_accept=""
+
+	# 配置文件参数验证失败，直接退出
+	[ "$2" = 0 ] || {
+		echo "validation failed"
+		return 1
+	}
+
+	cmd="$(generate_command "${section}")"
+	# echo $cmd
+
+	# 不启用本条转发或不是转发服务则返回
+	[ "$cmd" = "" ] && return 0
+
+	procd_open_instance "${CONFIG}.${section}"
+	procd_set_param command ${cmd}
+	procd_set_param respawn
+	config_get user "${section}" user
+	if [ -n "$user" ]; then
+		procd_set_param user $user
+	fi
+
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_close_instance
+
+	# 添加防火墙端口列表，用于最后统一开通防火墙
+	config_get firewall_accept ${section} firewall_accept
+	[ "$firewall_accept" = "1" ] && add_port_list ${section}
+
+}
+
+# 启动服务
+start_service() {
+	# 获取全局是否启动
+	enable=$(uci -q get $CONFIG.@global[0].enable)
+	if [ "$enable" = "0" ];then
+		stop_service
+	else
+		# 加载配置
+		config_load "$CONFIG"
+		# 启动转发实例,多实例方式，一个转发一个实例
+		config_foreach validate_section_socat instance start_instance
+		# 添加防火墙rule,开通端口
+		add_rule
+	fi
+}
+
+# 触发重启
+service_trigger() {
+	# 配置文件变更触发重新加载
+	procd_add_reload_triggers "$CONFIG"
+	procd_add_validation validate_section_socat
+}
+
+# 配置了service_trigger后，必须配置出发后的reload操作
+reload_service()
+{
+        echo "restarting service socat"
+        stop
+        start
+}
+
+# 服务关闭后
+service_stopped() {
+	del_rule
+}

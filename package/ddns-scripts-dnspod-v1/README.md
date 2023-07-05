@@ -1,0 +1,1 @@
+Dnspod DDNS for openwrt-22.03 
