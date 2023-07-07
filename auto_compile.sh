@@ -3,8 +3,12 @@
 ####################
 # system base tool #
 ####################
-sudo apt install -y build-essential gawk gcc-multilib flex git gettext libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev curl
-sudo apt -y update
+sudo apt update
+sudo apt install -y build-essential clang flex bison g++ gawk gcc-multilib g++-multilib \
+gettext git libncurses-dev libssl-dev python3-distutils rsync unzip zlib1g-dev \
+file wget
+sudo apt install -y build-essential gawk gcc-multilib flex git gettext \
+libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev curl
 sudo apt -y upgrade
 
 ##################

@@ -13,8 +13,8 @@ PKG_BUILD_PARALLEL:=1
 include $(INCLUDE_DIR)/package.mk
 
 define Package/custom-settings
-  SECTION:=net
-  CATEGORY:=Network
+  SECTION:=base
+  CATEGORY:=Base system
   TITLE:=base settings
   PKGARCH:=all
   DEPENDS:=+base-files

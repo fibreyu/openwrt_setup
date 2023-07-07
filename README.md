@@ -4,6 +4,6 @@ pkgs and config for openwrt
 
 
 ```
-wget auto_compile.sh ~/auto_compile.sh | bash ~/auto_compile.sh
+wget https://raw.githubusercontent.com/fibreyu/openwrt_setup/main/auto_compile.sh -O ~/auto_compile.sh && bash ~/auto_compile.sh
 ```
 

@@ -30,7 +30,7 @@ let callServiceList = rpc.declare({
 // get instance status
 function getInstanceStatus(section_name) {
     return L.resolveDefault(callServiceList('socat'), {}).then(function (res) {
-        let isRunning = false
+        let isRunning = false;
         try {
             isRunning =res['socat']['instances']['socat.'+ section_name]['running'];
         } catch (e) {}
@@ -44,9 +44,9 @@ function renderInstanceStatus(isRunning) {
     let spanTemp = '<em><span style="color:%s"><strong>%s</strong></span></em>';
 
     if (isRunning) {
-        renderHTML += String.format(spanTemp, 'green', '✓')
+        renderHTML += String.format(spanTemp, 'green', '✓');
     } else {
-        renderHTML += String.format(spanTemp, 'red', 'X')
+        renderHTML += String.format(spanTemp, 'red', 'X');
     }
 
     return renderHTML;
@@ -55,9 +55,9 @@ function renderInstanceStatus(isRunning) {
 // get service status
 function getServiceStatus(section_name) {
     return L.resolveDefault(callServiceList('socat'), {}).then(function (res) {
-        let isRunning = {}
+        let isRunning = {};
         try {
-            isRunning = res['socat']
+            isRunning = res['socat'];
         } catch (e) {}
         if (isRunning) {
             return true;
@@ -116,9 +116,9 @@ function setParams(o, params) {
                 o.value.apply(o, args);
             }
         } else if (key === 'depends') {
-            if (!Array.isArray(val))
+            if (!Array.isArray(val)) {
                 val = [val];
-
+            }
             let deps = [];
             for (let j = 0; j < val.length; j++) {
                 let d = {};
@@ -182,7 +182,7 @@ return view.extend({
 
     render: function(data) {
         
-        let hosts = data[0]
+        let hosts = data[0];
         
         let m, s, o;
 
@@ -229,17 +229,17 @@ return view.extend({
         // setting show in GridSection //
         //////////////////////////////////
         // s = m.section(form.GridSection, 'instance', _('Port Forward Settings'))
-        s = m.section(cbiUuidGridSection, 'instance', _('Port Forward Settings'))
-        s.anonymous = true
-        s.addremove = true
-        s.sortable = true
-        s.rowcolors = true
-        s.addbtntitle = _('Add new Settings')
-        s.filter = function (s) { return s !== 'example' }
+        s = m.section(cbiUuidGridSection, 'instance', _('Port Forward Settings'));
+        s.anonymous = true;
+        s.addremove = true;
+        s.sortable = true;
+        s.rowcolors = true;
+        s.addbtntitle = _('Add new Settings');
+        s.filter = function (s) { return s !== 'example' };
 
         o = s.option(form.Flag, 'enable', _('enabled'));
         o.modalonly = false;
-        o.rmempty = false
+        o.rmempty = false;
         o.editable = true;
         o = s.option(form.Value, 'status', _('status'));
         o.modalonly = false;
@@ -250,7 +250,7 @@ return view.extend({
             L.Poll.add(function() {
                 return L.resolveDefault(getInstanceStatus(section_name)).then(function (res) {
                     let view = document.getElementById('socat.' + section_name);
-                    view.innerHTML = renderInstanceStatus(res)
+                    view.innerHTML = renderInstanceStatus(res);
                 })
             })
 
@@ -299,12 +299,11 @@ return view.extend({
         
         // set hosts for selection
         L.sortedKeys(hosts).forEach(function (mac) {
-            let l = []
+            let l = [];
             let ip = L.toArray(hosts[mac].ipaddrs || hosts[mac].ipv4)[0] ||
-                L.toArray(hosts[mac].ip6addrs || hosts[mac].ipv6)[0] ||
-                '?'
-            let ele = E([], [ mac, ' (', E('strong', [ hosts[mac].name || ip ]), ')' ])
-            newSettingConf[7][4].values.push([ ip, ele ])
+                L.toArray(hosts[mac].ip6addrs || hosts[mac].ipv6)[0] || '?';
+            let ele = E([], [ mac, ' (', E('strong', [ hosts[mac].name || ip ]), ')' ]);
+            newSettingConf[7][4].values.push([ ip, ele ]);
         })
 
         s.tab('new_setting', _('New Settings'));
