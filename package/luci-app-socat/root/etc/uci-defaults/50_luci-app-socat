@@ -25,4 +25,6 @@ EOF
 # EOF
 
 rm -rf /tmp/luci-*cache
+
+chmod 700 /etc/config/socat
 exit 0

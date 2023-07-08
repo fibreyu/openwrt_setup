@@ -31,6 +31,7 @@ sed -i "/config dhcp 'lan'/a\\\toption start '1'" /etc/config/dhcp
 
 # login ttyd
 sed -i 's/login/login -f root/g' /etc/config/ttyd
+sed -i 's/${interface:+-i /#${interface:+-i /g' /etc/init.d/ttyd
 
 # language
 sed '/option lang/d' /etc/config/luci

@@ -3,7 +3,7 @@
 'require ui';
 'require form';
 'require rpc';
-'require uci'
+'require uci';
 'require tools.widgets as widgets';
 
 let newSettingConf = [
