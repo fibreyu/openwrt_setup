@@ -1,14 +1,14 @@
 #!/bin/sh
 
 # lan ip
-lan_ip='10.0.4.8'
-gateway='10.0.4.2'
+lan_ip='10.0.0.88'
+gateway='10.0.0.253'
 dns_ip=${gateway}
 
 # change password
 sed -i 's/root:::0:99999:7:::/root:$1$2Ep0SUcR$A00OPM0TNK6zRWMVP017M0:19282:0:99999:7:::/g' /etc/shadow
 
-# change ip
+# change ip and gate way
 sed -i "s/192.168.1.1/${lan_ip}/g" /etc/config/network
 sed -i "/option ipaddr '${lan_ip}'/a\\\tlist dns '${dns_ip}'" /etc/config/network
 sed -i "/option ipaddr '${lan_ip}'/a\\\toption gateway '${gateway}'" /etc/config/network
@@ -31,7 +31,13 @@ sed -i "/config dhcp 'lan'/a\\\toption start '1'" /etc/config/dhcp
 
 # login ttyd
 sed -i 's/login/login -f root/g' /etc/config/ttyd
+# fix ttyd not change after lan ip change bug
 sed -i 's/${interface:+-i /#${interface:+-i /g' /etc/init.d/ttyd
+
+# vim
+# fix E1187: Failed to source defaults.vim bug
+echo "set nocompatible" >> ~/.vimrc
+echo "set nu" >> ~/.vimrc
 
 # language
 sed '/option lang/d' /etc/config/luci
