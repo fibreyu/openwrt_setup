@@ -18,10 +18,10 @@ define Package/ddns-scripts-aliyun
   SUBMENU:=IP Addresses and Names
   TITLE:=DDNS extension for AliYun.com
   PKGARCH:=all
-  DEPENDS:=ddns-scripts +wget-ssl +openssl-util
+  DEPENDS:=ddns-scripts +curl +jsonfilter +openssl-util
 endef
 
-define Package/ddns-scripts-aliyun/description
+define Package/$(PKG_NAME)/description
   Dynamic DNS Client scripts extension for AliYun.com
 endef
 
@@ -31,9 +31,18 @@ endef
 define Build/Compile
 	$(CP) ./*.sh $(PKG_BUILD_DIR)
 	$(CP) ./*.json $(PKG_BUILD_DIR)
+	# remove comments, white spaces and empty lines
+	for FILE in `find $(PKG_BUILD_DIR) -type f`; do \
+		$(SED) 's/^[[:space:]]*//' \
+		-e '/^#[[:space:]]\|^#$$$$/d' \
+		-e 's/[[:space:]]#[[:space:]].*$$$$//' \
+		-e 's/[[:space:]]*$$$$//' \
+		-e '/^\/\/[[:space:]]/d'	\
+		-e '/^[[:space:]]*$$$$/d'	$$$$FILE; \
+	done
 endef
 
-define Package/ddns-scripts-aliyun/preinst
+define Package/$(PKG_NAME)/preinst
 	#!/bin/sh
 	# if NOT run buildroot then stop service
 	[ -z "$${IPKG_INSTROOT}" ] && /etc/init.d/ddns stop >/dev/null 2>&1
@@ -58,4 +67,4 @@ define Package/ddns-scripts-aliyun/prerm
 	exit 0 # suppress errors
 endef
 
-$(eval $(call BuildPackage,ddns-scripts-aliyun))
+$(eval $(call BuildPackage,$(PKG_NAME)))
