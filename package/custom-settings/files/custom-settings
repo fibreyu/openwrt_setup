@@ -45,11 +45,11 @@ sed -i 's/${interface:+-i /#${interface:+-i /g' /etc/init.d/ttyd
 
 # vim
 # fix E1187: Failed to source defaults.vim bug
-echo "set nocompatible" >> ~/.vimrc
-echo "set nu" >> ~/.vimrc
+echo "set nocompatible" >> /root/.vimrc
+echo "set nu" >> /root/.vimrc
 
 # language
-sed '/option lang/d' /etc/config/luci
-sed "/config core 'main'/a\\\toption lang 'zh_cn'" /etc/config/luci
+sed -i '/option lang/d' /etc/config/luci
+sed -i "/config core 'main'/a\\\toption lang 'zh_cn'" /etc/config/luci
 
 exit 0
