@@ -31,9 +31,10 @@ command -v openssl >/dev/null 2>&1 || write_log 13 "Openssl-util support is requ
 
 # 变量声明
 local __HOST __DOMAIN __TYPE __CMDBASE __STATUS __RECID __RECIP __TTL __SEPARATOR __URLARGS __URLBASE
+local __TTL=600
 
 # 设置get请求参数分隔符
-__SEPARATOR="&"
+local __SEPARATOR="&"
 
 # 设置记录类型
 [ $use_ipv6 = 0 ] && __TYPE="A" || __TYPE="AAAA"
@@ -120,7 +121,7 @@ build_Request() {
 
 	# 附加公共参数
 	string="Format=JSON"; __URLARGS="$__URLARGS${__SEPARATOR}"$(percentEncode "${string%%=*}")"="$(percentEncode "${string#*=}")
-	string="TTL=600";__URLARGS="$__URLARGS${__SEPARATOR}"$(percentEncode "${string%%=*}")"="$(percentEncode "${string#*=}")
+	string="TTL=$__TTL";__URLARGS="$__URLARGS${__SEPARATOR}"$(percentEncode "${string%%=*}")"="$(percentEncode "${string#*=}")
 	string="Version=2015-01-09"; __URLARGS="$__URLARGS${__SEPARATOR}"$(percentEncode "${string%%=*}")"="$(percentEncode "${string#*=}")
 	string="AccessKeyId=$username"; __URLARGS="$__URLARGS${__SEPARATOR}"$(percentEncode "${string%%=*}")"="$(percentEncode "${string#*=}")
 	string="SignatureMethod=HMAC-SHA1"; __URLARGS="$__URLARGS${__SEPARATOR}"$(percentEncode "${string%%=*}")"="$(percentEncode "${string#*=}")
@@ -161,16 +162,18 @@ aliyun_transfer() {
 
 	[ $# = 0 ] && write_log 12 "'aliyun_transfer()' Error - wrong number of parameters"
 
-	# 生成请求链接
-	build_Request $__PARAM
-	__RUNPROG="$__CMDBASE '${__URLBASE}?${__URLARGS}'"
-	write_log 7 "#> $__RUNPROG"
-
 	# 执行 $cnt 次尝试
 	while : ; do
+
+		# 生成请求链接，链接跟时间有关，每次都要重新生成
+		build_Request $__PARAM
+		__RUNPROG="$__CMDBASE '${__URLBASE}?${__URLARGS}'"
+		write_log 7 "#> $__RUNPROG"
+
+		# 发送请求
 		__RESP=`eval $__RUNPROG 2>&1`
 		__ERR=$?
-		[ $__ERR = 0 ] && { write_log 4 "get response: $__RESP"; return 0 }
+		[ $__ERR = 0 ] && { write_log 5 "get response: $__RESP"; break; }
 		
 		# get error
 		write_log 3 "[$__RESP]" 
@@ -193,12 +196,15 @@ aliyun_transfer() {
 		PID_SLEEP=0
 	done
 	__ERR_CODE=`jsonfilter -s "$__RESP" -e "@.Code"`
-	[ -z "$__ERR_CODE" ] && return 0
+	# 没有错误码则返回获取的结果
+	[ -z "$__ERR_CODE" ] && { echo __RESP; return 0; }
+	
+	# 分析错误码
 	case $__ERR_CODE in
 		LastOperationNotFinished)
-			write_log 4 "最后一次操作未完成,2秒后重试";return 1;;
+			write_log 4 "最后一次操作未完成,2秒后重试";;
 		InvalidTimeStamp.Expired)
-			write_log 4 "时间戳错误,2秒后重试";return 1;;
+			write_log 4 "时间戳错误,2秒后重试";;
 		InvalidAccessKeyId.NotFound)
 			__ERR_CODE="无效AccessKey ID";;
 		SignatureDoesNotMatch)
@@ -224,12 +230,14 @@ aliyun_transfer() {
 	local __info="[$(date '+%Y-%m-%d %H:%M:%S')] ERROR : [$__ERR_CODE] - Process Terminated"
 	# printf "%s\n" " $__info" >> $LOGFILE
 	write_log 13 ${__info}
+	return 1
 }
 
 # 添加解析记录
 add_domain() {
 	local __VALUE
 	__VALUE=`aliyun_transfer "Action=AddDomainRecord" "DomainName=${__DOMAIN}" "RR=${__HOST}" "Type=${__TYPE}" "Value=${__IP}"`
+	[ $? = 1 ] && return 1
 	__ERR=`jsonfilter -s "$__VALUE" -e "@.RecordId"`
 	[ -z "$__ERR" ] && write_log 14 "添加新解析记录失败"
 	write_log 7 "添加解析记录成功: [$([ "$__HOST" = @ ] || echo $__HOST.)$__DOMAIN]-[$__IP]"
@@ -241,6 +249,7 @@ add_domain() {
 update_domain() {
 	local __VALUE
 	__VALUE=`aliyun_transfer "Action=UpdateDomainRecord" "RecordId=${__RECID}" "RR=${__HOST}" "Type=${__TYPE}" "Value=${__IP}" "TTL=$__TTL"`
+	[ $? = 1 ] && return 1
 	__ERR=`jsonfilter -s "$__VALUE" -e "@.RecordId"`
 	[ -z "$value" ] && write_log 14 "修改解析记录失败"
 	write_log 7 "修改解析记录成功: [$([ "$__HOST" = @ ] || echo $__HOST.)$__DOMAIN]-[IP:$__IP]-[TTL:$__TTL]"
@@ -251,6 +260,7 @@ update_domain() {
 enable_domain() {
 	local __VALUE
 	__VALUE=`aliyun_transfer "Action=SetDomainRecordStatus" "RecordId=${__RECID}" "Status=Enable"`
+	[ $? = 1 ] && return 1
 	__ERR=`jsonfilter -s "$__VALUE" -e "@.Status"`
 	[ "$value" != "Enable" ] && write_log 14 "启用解析记录失败"
 	write_log 7 "启用解析记录成功"
@@ -261,7 +271,8 @@ enable_domain() {
 describe_domain() {
 	local __RESP
 	local ret=0
-	__RESP=`aliyun_transfer "Action=DescribeSubDomainRecords" "SubDomain=${__HOST}.${__DOMAIN}" "Type=$__TYPE" "DomainName=${__DOMAIN}" "Line=default"`
+	__RESP=`aliyun_transfer "Action=DescribeSubDomainRecords" "SubDomain=${__HOST}.${__DOMAIN}" "Type=$__TYPE" "DomainName=${__DOMAIN}"`
+	[ $? = 1 ] && return -1
 	write_log 7 "获取到解析记录: $__RESP" 
 	__RESP=`jsonfilter -s "$__RESP" -e "@.DomainRecords.Record[@]"`
 	if [ -z $__RESP ]; then
@@ -279,6 +290,7 @@ describe_domain() {
 			write_log 7  "解析记录需要更新: [解析记录IP:$__RECIP] [本地IP:$__IP]"
 			ret=$(( $ret | 4 ))
 		fi
+	fi
 	return $ret
 }
 
