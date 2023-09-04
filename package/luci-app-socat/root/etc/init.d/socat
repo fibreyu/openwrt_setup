@@ -10,10 +10,13 @@ STOP=99
 USE_PROCD=1
 # 输出向ubus总线调用的参数信息
 # PROCD_DEBUG=1
+
+DAEMON=socat
 # 服务程序
-PROG=/usr/bin/socat
+PROG=/usr/bin/$DAEMON
 # 配置文件名
 CONFIG=socat
+CONFIGFILE=/etc/config/$CONFIG
 
 # 要打开的防火墙端口
 UDP4=""
@@ -224,6 +227,7 @@ generate_command() {
 }
 
 # 启动转发实例
+# 向 procd 注册并启动服务，在 services 中管理的对象中增加一项
 start_instance() {
 	local user
 	local section="$1"
@@ -242,9 +246,19 @@ start_instance() {
 	# 不启用本条转发或不是转发服务则返回
 	[ "$cmd" = "" ] && return 0
 
-	procd_open_instance "${CONFIG}.${section}"
+	echo "start service !"
+
+	# 开始增加一个服务实例，在 procd 看来一个应用程序可以有多个实例
+	# ubus call service list 可以查看实例
+	procd_open_instance "${DAEMON}.${section}"
+	
+	# 执行命令
 	procd_set_param command ${cmd}
-	procd_set_param respawn
+	# 定义 respawn 参数，进程意外推出的重启机制及策略
+	# threshold： 异常失败边界值 3600 如果小于这个时间退出，则会累加重新启动次数，如果大于这个临界值，则将重启次数置 0; timeout: 重启延迟时间5; retry: 失败重启次数5
+	# procd_set_param respawn retry=10
+	procd_set_param respawn 3600 5 10
+	
 	config_get user "${section}" user
 	if [ -n "$user" ]; then
 		procd_set_param user $user
@@ -252,6 +266,21 @@ start_instance() {
 
 	procd_set_param stdout 1
 	procd_set_param stderr 1
+
+	# 配置文件名，比较文件内容是否改变
+	# procd_set_param file $CONFIGFILE
+
+	# 绑定网络设备 (探测 ifindex 更改)
+	# netdevs=
+	# procd_set_param netdev $netdevs
+
+	# 配置环境变量
+	# procd_set_param env
+	
+	# 指定对应的pidfile
+	# procd_set_param pidfile /var/run/${DAEMON}.pid
+
+	# 完成进程实例的增加
 	procd_close_instance
 
 	# 添加防火墙端口列表，用于最后统一开通防火墙
@@ -265,7 +294,10 @@ start_service() {
 	# 获取全局是否启动
 	enable=$(uci -q get $CONFIG.@global[0].enable)
 	if [ "$enable" = "0" ];then
-		stop_service
+		# stop_service
+		service_stop "$PROG"
+		# stop
+		return 0
 	else
 		# 加载配置
 		config_load "$CONFIG"
@@ -276,14 +308,15 @@ start_service() {
 	fi
 }
 
-# 触发重启
-service_trigger() {
+# 设置文件或网络接口改变后，触发服务重启重新读取配置
+service_triggers() {
 	# 配置文件变更触发重新加载
-	procd_add_reload_triggers "$CONFIG"
+	procd_add_reload_trigger "$CONFIG"
 	procd_add_validation validate_section_socat
 }
 
 # 配置了service_trigger后，必须配置出发后的reload操作
+# 定义了本函数，reload 时调用本函数，否则再次调用 start 函数
 reload_service()
 {
         echo "restarting service socat"
@@ -294,4 +327,28 @@ reload_service()
 # 服务关闭后
 service_stopped() {
 	del_rule
+}
+
+# 让 procd 解除注册，并关闭服务，将 services 中的管理对象删除
+stop_service()
+{
+	echo "stop service!"
+	# rm -rf /var/run/${DAEMON}.pid
+	service_stop "$PROG"
+	# killall $DAEMON
+}
+
+# 判断进程是否启动成功
+# service_started()
+# {
+# }
+
+# 查询服务的状态
+# service_running()
+# {}
+
+restart()
+{
+	stop
+	start
 }

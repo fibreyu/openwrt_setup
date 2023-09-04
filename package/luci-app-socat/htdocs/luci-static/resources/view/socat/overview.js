@@ -55,15 +55,15 @@ function renderInstanceStatus(isRunning) {
 // get service status
 function getServiceStatus(section_name) {
     return L.resolveDefault(callServiceList('socat'), {}).then(function (res) {
-        let isRunning = {};
+        let isRunning = false;
         try {
-            isRunning = res['socat'];
-        } catch (e) {}
-        if (isRunning) {
-            return true;
-        } else {
-            return false;
+            if(res['socat'] && Object.keys(res['socat']).length!=0) {
+                isRunning = true
+            };
+        } catch (e) {
+            console.log("socat service is not running")
         }
+        return isRunning
     })
 }
 
