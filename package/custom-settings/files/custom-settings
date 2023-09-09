@@ -52,4 +52,7 @@ echo "set nu" >> /root/.vimrc
 sed -i '/option lang/d' /etc/config/luci
 sed -i "/config core 'main'/a\\\toption lang 'zh_cn'" /etc/config/luci
 
+# fix ddns not start at boot bug
+sed -i '/boot() {/a\\tstart $@' /etc/init.d/ddns
+
 exit 0
