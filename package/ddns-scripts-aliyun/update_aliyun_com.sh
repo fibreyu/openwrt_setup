@@ -197,7 +197,7 @@ aliyun_transfer() {
 	done
 	__ERR_CODE=`jsonfilter -s "$__RESP" -e "@.Code"`
 	# 没有错误码则返回获取的结果
-	[ -z "$__ERR_CODE" ] && { echo __RESP; return 0; }
+	[ -z "$__ERR_CODE" ] && { echo $__RESP; return 0; }
 	
 	# 分析错误码
 	case $__ERR_CODE in
