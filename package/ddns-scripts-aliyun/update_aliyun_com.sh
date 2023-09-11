@@ -236,10 +236,11 @@ aliyun_transfer() {
 # 添加解析记录
 add_domain() {
 	local __VALUE
+	local __RECID
 	__VALUE=`aliyun_transfer "Action=AddDomainRecord" "DomainName=${__DOMAIN}" "RR=${__HOST}" "Type=${__TYPE}" "Value=${__IP}"`
-	[ $? = 1 ] && return 1
-	__ERR=`jsonfilter -s "$__VALUE" -e "@.RecordId"`
-	[ -z "$__ERR" ] && write_log 14 "Failed to add a new resolution record."
+	[ $? = 1 ] && { write_log 7 "network error to add domain record."; return 1; }
+	__RECID=`jsonfilter -s "$__VALUE" -e "@.RecordId"`
+	[ -z "$__RECID" ] && write_log 14 "Failed to add a new resolution record."
 	write_log 7 "Successfully added resolution record.: [$([ "$__HOST" = @ ] || echo $__HOST.)$__DOMAIN]-[$__IP]"
 	return 0
 }
@@ -248,10 +249,11 @@ add_domain() {
 # 修改解析记录
 update_domain() {
 	local __VALUE
+	local __RECID
 	__VALUE=`aliyun_transfer "Action=UpdateDomainRecord" "RecordId=${__RECID}" "RR=${__HOST}" "Type=${__TYPE}" "Value=${__IP}" "TTL=$__TTL"`
-	[ $? = 1 ] && return 1
-	__ERR=`jsonfilter -s "$__VALUE" -e "@.RecordId"`
-	[ -z "$value" ] && write_log 14 "Failed to modify the resolution record."
+	[ $? = 1 ] && { write_log 7 "network error to update domain record."; return 1; }
+	__RECID=`jsonfilter -s "$__VALUE" -e "@.RecordId"`
+	[ -z "$__RECID" ] && write_log 14 "Failed to modify the resolution record."
 	write_log 7 "Successfully modified the resolution record: [$([ "$__HOST" = @ ] || echo $__HOST.)$__DOMAIN]-[IP:$__IP]-[TTL:$__TTL]"
 	return 0
 }
@@ -259,10 +261,11 @@ update_domain() {
 # 启用解析记录
 enable_domain() {
 	local __VALUE
+	local __STATUS
 	__VALUE=`aliyun_transfer "Action=SetDomainRecordStatus" "RecordId=${__RECID}" "Status=Enable"`
-	[ $? = 1 ] && return 1
-	__ERR=`jsonfilter -s "$__VALUE" -e "@.Status"`
-	[ "$value" != "Enable" ] && write_log 14 "Failed to enable resolution record."
+	[ $? = 1 ] && { write_log 7 "network error to enable domain record."; return 1; }
+	__STATUS=`jsonfilter -s "$__VALUE" -e "@.Status"`
+	[ "$__STATUS" != "Enable" ] && write_log 14 "Failed to enable resolution record."
 	write_log 7 "Successfully enabled resolution record."
 	return 0
 }
