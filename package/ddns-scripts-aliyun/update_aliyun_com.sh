@@ -272,7 +272,7 @@ describe_domain() {
 	local __RESP
 	local ret=0
 	__RESP=`aliyun_transfer "Action=DescribeSubDomainRecords" "SubDomain=${__HOST}.${__DOMAIN}" "Type=$__TYPE" "DomainName=${__DOMAIN}"`
-	[ $? = 1 ] && return -1
+	[ $? != 0 ] && return -1
 	write_log 7 "Get the resolution record: $__RESP" 
 	__RESP=`jsonfilter -s "$__RESP" -e "@.DomainRecords.Record[@]"`
 	if [ -z $__RESP ]; then
@@ -301,11 +301,16 @@ ret=$?
 
 if [ $ret = 0 ]; then
 	write_log 7 "Resolution record does not need to be updated: [Resolution record IP:$__RECIP] [Local IP:$__IP]"
+elif [ $ret = -1 ]; then
+	write_log 7 "network error to get resolution record."
 elif [ $ret = 1 ]; then
+	write_log 7 "add domain."
 	sleep 3 && add_domain
 else
-	[ $(( $ret & $2 )) -ne 0 ] && sleep 3 && enable_domain
-	[ $(( $ret & $4 )) -ne 0 ] && sleep 3 && update_domain
+	write_log 7 "enable domain."
+	[ $(( $ret & 2 )) -ne 0 ] && sleep 3 && enable_domain
+	write_log 7 "update domain."
+	[ $(( $ret & 4 )) -ne 0 ] && sleep 3 && update_domain
 fi
 
 return 0
