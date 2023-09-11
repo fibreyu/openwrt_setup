@@ -281,7 +281,7 @@ describe_domain() {
 	else
 		__STATUS=`jsonfilter -s "$__RESP" -e "@.Status"`
 		__RECIP=`jsonfilter -s "$__RESP" -e "@.Value"`
-		__RECID=`jsonfilter -s "$__TMP" -e "@.RecordId"`
+		__RECID=`jsonfilter -s "$__RESP" -e "@.RecordId"`
 		if [ "$__STATUS" != "ENABLE" ];then
 			write_log 7 "The resolution record is disabled."
 			ret=$(( $ret | 2 ))
@@ -308,8 +308,8 @@ elif [ $ret = 1 ]; then
 	write_log 7 "add domain."
 	sleep 3 && add_domain
 else
-	[ $(( $ret & 2 )) -ne 0 ] && { sleep 3; write_log 7 "enable domain."; enable_domain }
-	[ $(( $ret & 4 )) -ne 0 ] && { sleep 3; write_log 7 "update domain."; update_domain }
+	[ $(( $ret & 2 )) -ne 0 ] && { sleep 3; write_log 7 "enable domain."; enable_domain; }
+	[ $(( $ret & 4 )) -ne 0 ] && { sleep 3; write_log 7 "update domain."; update_domain; }
 fi
 
 return 0
