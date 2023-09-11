@@ -202,29 +202,29 @@ aliyun_transfer() {
 	# 分析错误码
 	case $__ERR_CODE in
 		LastOperationNotFinished)
-			write_log 4 "最后一次操作未完成,2秒后重试";;
+			write_log 4 "Last operation was not completed, retrying after 2 seconds.";;
 		InvalidTimeStamp.Expired)
-			write_log 4 "时间戳错误,2秒后重试";;
+			write_log 4 "Timestamp error, retrying after 2 seconds.";;
 		InvalidAccessKeyId.NotFound)
-			__ERR_CODE="无效AccessKey ID";;
+			__ERR_CODE="Invalid AccessKey ID";;
 		SignatureDoesNotMatch)
-			__ERR_CODE="无效AccessKey Secret";;
+			__ERR_CODE="Invalid AccessKey Secret";;
 		InvalidDomainName.NoExist)
-			__ERR_CODE="您操作的域名已经不存在";;
+			__ERR_CODE="The domain name you are operating on no longer exists.";;
 		InvalidDomainName.Format)
-			__ERR_CODE="域名格式错误";;
+			__ERR_CODE="Domain name format is incorrect.";;
 		DomainRecordConflict)
-			__ERR_CODE="与其他记录冲突，不能添加";;
+			__ERR_CODE="There is a conflict with another record and it cannot be added.";;
 		Forbidden.NotHichinaDomain)
-			__ERR_CODE="域名不是阿里云域名";;
+			__ERR_CODE="The domain name is not an Alibaba Cloud domain.";;
 		DomainRecordLocked)
-			__ERR_CODE="禁止操作：解析记录被锁定";;
+			__ERR_CODE="Prohibition operation: Resolution records are locked.";;
 		chgRRfail)
-			__ERR_CODE="修改解析记录失败";;	
+			__ERR_CODE="Failed to modify the resolution record.";;	
 		delRRfail)
-			__ERR_CODE="删除解析记录失败";;
+			__ERR_CODE="Failed to delete the resolution record.";;
 		addSoafail)
-			__ERR_CODE="创建域名失败";;
+			__ERR_CODE="Failed to create domain name.";;
 	esac
 	
 	local __info="[$(date '+%Y-%m-%d %H:%M:%S')] ERROR : [$__ERR_CODE] - Process Terminated"
@@ -239,8 +239,8 @@ add_domain() {
 	__VALUE=`aliyun_transfer "Action=AddDomainRecord" "DomainName=${__DOMAIN}" "RR=${__HOST}" "Type=${__TYPE}" "Value=${__IP}"`
 	[ $? = 1 ] && return 1
 	__ERR=`jsonfilter -s "$__VALUE" -e "@.RecordId"`
-	[ -z "$__ERR" ] && write_log 14 "添加新解析记录失败"
-	write_log 7 "添加解析记录成功: [$([ "$__HOST" = @ ] || echo $__HOST.)$__DOMAIN]-[$__IP]"
+	[ -z "$__ERR" ] && write_log 14 "Failed to add a new resolution record."
+	write_log 7 "Successfully added resolution record.: [$([ "$__HOST" = @ ] || echo $__HOST.)$__DOMAIN]-[$__IP]"
 	return 0
 }
 
@@ -251,8 +251,8 @@ update_domain() {
 	__VALUE=`aliyun_transfer "Action=UpdateDomainRecord" "RecordId=${__RECID}" "RR=${__HOST}" "Type=${__TYPE}" "Value=${__IP}" "TTL=$__TTL"`
 	[ $? = 1 ] && return 1
 	__ERR=`jsonfilter -s "$__VALUE" -e "@.RecordId"`
-	[ -z "$value" ] && write_log 14 "修改解析记录失败"
-	write_log 7 "修改解析记录成功: [$([ "$__HOST" = @ ] || echo $__HOST.)$__DOMAIN]-[IP:$__IP]-[TTL:$__TTL]"
+	[ -z "$value" ] && write_log 14 "Failed to modify the resolution record."
+	write_log 7 "Successfully modified the resolution record: [$([ "$__HOST" = @ ] || echo $__HOST.)$__DOMAIN]-[IP:$__IP]-[TTL:$__TTL]"
 	return 0
 }
 
@@ -262,8 +262,8 @@ enable_domain() {
 	__VALUE=`aliyun_transfer "Action=SetDomainRecordStatus" "RecordId=${__RECID}" "Status=Enable"`
 	[ $? = 1 ] && return 1
 	__ERR=`jsonfilter -s "$__VALUE" -e "@.Status"`
-	[ "$value" != "Enable" ] && write_log 14 "启用解析记录失败"
-	write_log 7 "启用解析记录成功"
+	[ "$value" != "Enable" ] && write_log 14 "Failed to enable resolution record."
+	write_log 7 "Successfully enabled resolution record."
 	return 0
 }
 
@@ -273,21 +273,21 @@ describe_domain() {
 	local ret=0
 	__RESP=`aliyun_transfer "Action=DescribeSubDomainRecords" "SubDomain=${__HOST}.${__DOMAIN}" "Type=$__TYPE" "DomainName=${__DOMAIN}"`
 	[ $? = 1 ] && return -1
-	write_log 7 "获取到解析记录: $__RESP" 
+	write_log 7 "Get the resolution record: $__RESP" 
 	__RESP=`jsonfilter -s "$__RESP" -e "@.DomainRecords.Record[@]"`
 	if [ -z $__RESP ]; then
-		write_log 7 "解析记录不存在: [$([ "$__HOST" = @ ] || echo $__HOST.)$__DOMAIN]"
+		write_log 7 "Resolution record does not exist: [$([ "$__HOST" = @ ] || echo $__HOST.)$__DOMAIN]"
 		ret=1
 	else
 		__STATUS=`jsonfilter -s "$__RESP" -e "@.Status"`
 		__RECIP=`jsonfilter -s "$__RESP" -e "@.Value"`
 		if [ "$__STATUS" != ENABLE ];then
-			write_log 7 "解析记录被禁用"
+			write_log 7 "The resolution record is disabled."
 			ret=$(( $ret | 2 ))
 		fi
 		if [ "$__RECIP" != "$__IP" ];then
 			__TTL=`jsonfilter -s "$__RESP" -e "@.TTL"`
-			write_log 7  "解析记录需要更新: [解析记录IP:$__RECIP] [本地IP:$__IP]"
+			write_log 7  "The resolution record needs to be updated: [Resolution record IP:$__RECIP] [Local IP:$__IP]"
 			ret=$(( $ret | 4 ))
 		fi
 	fi
@@ -300,7 +300,7 @@ describe_domain
 ret=$?
 
 if [ $ret = 0 ]; then
-	write_log 7 "解析记录不需要更新: [解析记录IP:$__RECIP] [本地IP:$__IP]"
+	write_log 7 "Resolution record does not need to be updated: [Resolution record IP:$__RECIP] [Local IP:$__IP]"
 elif [ $ret = 1 ]; then
 	sleep 3 && add_domain
 else
