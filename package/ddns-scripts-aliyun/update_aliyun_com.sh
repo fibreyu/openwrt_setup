@@ -157,7 +157,7 @@ build_Request() {
 aliyun_transfer() {
 	local __PARAM=$*
 	local __CNT=0
-	local __RUNPROG __ERR PID_SLEEP __ERR_CODE
+	local __RUNPROG __ERR PID_SLEEP __ERR_CODE __ERR_MSG __ERR_RECOM
 	local __RESP
 
 	[ $# = 0 ] && write_log 12 "'aliyun_transfer()' Error - wrong number of parameters"
@@ -196,40 +196,46 @@ aliyun_transfer() {
 		PID_SLEEP=0
 	done
 	__ERR_CODE=`jsonfilter -s "$__RESP" -e "@.Code"`
+	__ERR_MSG=`jsonfilter -s "$__RESP" -e "@.Message"`
+	__ERR_RECOM=`jsonfilter -s "$__RESP" -e "@.Recommend"`
 	# 没有错误码则返回获取的结果
 	[ -z "$__ERR_CODE" ] && { echo $__RESP; return 0; }
 	
 	# 分析错误码
-	case $__ERR_CODE in
-		LastOperationNotFinished)
-			write_log 4 "Last operation was not completed, retrying after 2 seconds.";;
-		InvalidTimeStamp.Expired)
-			write_log 4 "Timestamp error, retrying after 2 seconds.";;
-		InvalidAccessKeyId.NotFound)
-			__ERR_CODE="Invalid AccessKey ID";;
-		SignatureDoesNotMatch)
-			__ERR_CODE="Invalid AccessKey Secret";;
-		InvalidDomainName.NoExist)
-			__ERR_CODE="The domain name you are operating on no longer exists.";;
-		InvalidDomainName.Format)
-			__ERR_CODE="Domain name format is incorrect.";;
-		DomainRecordConflict)
-			__ERR_CODE="There is a conflict with another record and it cannot be added.";;
-		Forbidden.NotHichinaDomain)
-			__ERR_CODE="The domain name is not an Alibaba Cloud domain.";;
-		DomainRecordLocked)
-			__ERR_CODE="Prohibition operation: Resolution records are locked.";;
-		chgRRfail)
-			__ERR_CODE="Failed to modify the resolution record.";;	
-		delRRfail)
-			__ERR_CODE="Failed to delete the resolution record.";;
-		addSoafail)
-			__ERR_CODE="Failed to create domain name.";;
-	esac
+	# case $__ERR_CODE in
+	# 	LastOperationNotFinished)
+	# 		write_log 4 "Last operation was not completed, retrying after 2 seconds.";;
+	# 	InvalidTimeStamp.Expired)
+	# 		write_log 4 "Timestamp error, retrying after 2 seconds.";;
+	# 	InvalidAccessKeyId.NotFound)
+	# 		__ERR_CODE="Invalid AccessKey ID";;
+	# 	SignatureDoesNotMatch)
+	# 		__ERR_CODE="Invalid AccessKey Secret";;
+	# 	InvalidDomainName.NoExist)
+	# 		__ERR_CODE="The domain name you are operating on no longer exists.";;
+	# 	InvalidDomainName.Format)
+	# 		__ERR_CODE="Domain name format is incorrect.";;
+	# 	DomainRecordConflict)
+	# 		__ERR_CODE="There is a conflict with another record and it cannot be added.";;
+	# 	Forbidden.NotHichinaDomain)
+	# 		__ERR_CODE="The domain name is not an Alibaba Cloud domain.";;
+	# 	DomainRecordLocked)
+	# 		__ERR_CODE="Prohibition operation: Resolution records are locked.";;
+	# 	chgRRfail)
+	# 		__ERR_CODE="Failed to modify the resolution record.";;	
+	# 	delRRfail)
+	# 		__ERR_CODE="Failed to delete the resolution record.";;
+	# 	addSoafail)
+	# 		__ERR_CODE="Failed to create domain name.";;
+	# esac
 	
 	local __info="[$(date '+%Y-%m-%d %H:%M:%S')] ERROR : [$__ERR_CODE] - Process Terminated"
 	# printf "%s\n" " $__info" >> $LOGFILE
-	write_log 13 ${__info}
+	write_log 3 "================================================="
+	write_log 3 ${__info}
+	write_log 3 ${__ERR_MSG}
+	write_log 3 ${__ERR_RECOM}
+	write_log 13 "================================================="
 	return 1
 }
 
@@ -249,7 +255,7 @@ add_domain() {
 # 修改解析记录
 update_domain() {
 	local __VALUE
-	local __RECID
+	# local __RECID
 	__VALUE=`aliyun_transfer "Action=UpdateDomainRecord" "RecordId=${__RECID}" "RR=${__HOST}" "Type=${__TYPE}" "Value=${__IP}" "TTL=$__TTL"`
 	[ $? = 1 ] && { write_log 7 "network error to update domain record."; return 1; }
 	__RECID=`jsonfilter -s "$__VALUE" -e "@.RecordId"`
